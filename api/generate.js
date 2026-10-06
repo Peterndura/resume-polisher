@@ -4,38 +4,41 @@ export default async function handler(req, res) {
   }
 
   const { bullet } = req.body;
+
   if (!bullet) {
-    return res.status(400).json({ error: 'Please provide a bullet point.' });
+    return res.status(400).json({ error: 'Bullet point is required.' });
   }
 
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an expert executive resume writer. Rewrite the provided resume bullet point into 3 impactful, action-oriented variations with strong metric placeholders (e.g., increased revenue by X%). Output ONLY the 3 bullet options as a bulleted list.'
-          },
-          { role: 'user', content: bullet }
-        ],
-        temperature: 0.7
-      })
-    });
+    const apiKey = process.env.GEMINI_API_KEY;
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: `You are an expert resume writer. Rewrite the following resume bullet point into 3 strong, high-impact alternatives using strong action verbs and professional tone:\n\n"${bullet}"`
+                }
+              ]
+            }
+          ]
+        })
+      }
+    );
 
     const data = await response.json();
-    
+
     if (!response.ok) {
-      return res.status(500).json({ error: data.error?.message || 'OpenAI API error' });
+      return res.status(500).json({ error: data.error?.message || 'Gemini API Error' });
     }
 
-    return res.status(200).json({ result: data.choices[0].message.content });
-  } catch (err) {
-    return res.status(500).json({ error: 'Server error processing request.' });
+    const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    return res.status(200).json({ result: resultText });
+  } catch (error) {
+    return res.status(500).json({ error: 'Internal Server Error' });
   }
 }
